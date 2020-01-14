@@ -1,6 +1,7 @@
 from collections import OrderedDict
-import os.path
 import inotify.adapters
+import inotify.constants
+from os import stat
 
 
 class FStatCache:
@@ -22,14 +23,24 @@ class FStatCache:
     def __set_item(self, file, size):
         self.store[file] = size
 
+    def __get_file_using_stat(self, file):
+        return stat(file).st_size
+
     def __watch_files__(self, list_of_files):
         for file in list_of_files:
-            print("file to watch " + file)
-            self.watcher.add_watch(file)
+            try:
+                print("file to watch " + file)
+                self.watcher.add_watch(file)
+            except FileNotFoundError:
+                print("no such file: , skipping it " + file)
 
         for event in self.watcher.event_gen(yield_nones=False):
             (_, type_names, path, filename) = event
             print("PATH=[{}] FILENAME=[{}] EVENT_TYPES={}".format(path, filename, type_names))
+            if type_names[0] == "IN_CLOSE_WRITE":
+                file_size = self.__get_file_using_stat(path)
+                print("update the size of %s to %s" % (path, file_size))
+                self.store[path] = file_size
 
 
 if __name__ == '__main__':
