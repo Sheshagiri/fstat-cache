@@ -2,6 +2,7 @@ from collections import OrderedDict
 import inotify.adapters
 import inotify.constants
 from os import stat
+import os.path
 
 
 class FStatCache:
@@ -11,11 +12,19 @@ class FStatCache:
         self.__watch_files__(list_of_files)
 
     def get_file_size(self, file):
-        print(self.store)
+        """
+        fetches the size of the given file, from the cache if present else by calling
+        the os.stat function.
+        :param file: absolute path to the file
+        :return: size of the file in bytes
+        """
         try:
             return self.__get_item__(file)
         except KeyError:
-            raise ValueError(file + " is not being monitored currently")
+            if not os.path.isfile(file):
+                raise FileNotFoundError(file)
+            print("file %s is not being watched, fetching details using os.stat instead" % file)
+            return self.__get_file_using_stat(file)
 
     def __get_item__(self, file):
         return self.store[file]
@@ -23,7 +32,13 @@ class FStatCache:
     def __set_item(self, file, size):
         self.store[file] = size
 
-    def __get_file_using_stat(self, file):
+    @staticmethod
+    def __get_file_using_stat(file):
+        """
+        fetches size of the given file in bytes by calling os.stat function.
+        :param file: absolute path to the file
+        :return: size of the file in bytes
+        """
         return stat(file).st_size
 
     def __watch_files__(self, list_of_files):
