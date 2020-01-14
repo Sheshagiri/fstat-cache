@@ -1,1 +1,1 @@
-inotify-simple==1.2.1
+inotify

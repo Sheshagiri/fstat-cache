@@ -1,34 +1,20 @@
 from collections import OrderedDict
 import os.path
-from inotify_simple import INotify, masks, flags
-import threading
+import inotify.adapters
 
 
 class FStatCache:
-    """
-
-    """
-    def __init__(self):
-        """
-
-        :rtype: object
-        """
+    def __init__(self, list_of_files):
         self.store = OrderedDict()
+        self.watcher = inotify.adapters.Inotify()
+        self.__watch_files__(list_of_files)
 
-        monitor_thread = threading.Thread(target=self.__watch_files__)
-        monitor_thread.start()
-    """
-    
-    :rtype bytes
-    """
     def get_file_size(self, file):
+        print(self.store)
         try:
             return self.__get_item__(file)
         except KeyError:
-            file_info = os.stat(file)
-            file_size = file_info.st_size
-            self.store[file] = file_size
-            return file_info.st_size
+            raise ValueError(file + " is not being monitored currently")
 
     def __get_item__(self, file):
         return self.store[file]
@@ -36,29 +22,16 @@ class FStatCache:
     def __set_item(self, file, size):
         self.store[file] = size
 
-    def __files_to_watch(self, inotify, flags):
-        """
-        watch all the files present in the store and return inotify watchers
-        """
-        watches = {}
-        for file in self.store:
-            try:
-                wd = inotify.add_watch(file, flags)
-                watches[wd] = file
-            except FileNotFoundError:
-                pass
-        return watches
+    def __watch_files__(self, list_of_files):
+        for file in list_of_files:
+            print("file to watch " + file)
+            self.watcher.add_watch(file)
 
-    def __watch_files__(self):
-        inotify = INotify()
-        watches = self.__files_to_watch(inotify, masks.ALL_EVENTS)
-        while True:
-            for event in inotify.read():
-                print(event)
-                for flag in flags.from_mask(event.mask):
-                    print('    ' + str(flag))
+        for event in self.watcher.event_gen(yield_nones=False):
+            (_, type_names, path, filename) = event
+            print("PATH=[{}] FILENAME=[{}] EVENT_TYPES={}".format(path, filename, type_names))
 
 
 if __name__ == '__main__':
-    cache = FStatCache()
-    cache.get_file_size("/Users/sheshagiri/scalyr.log")
+    cache = FStatCache(["/tmp/test_file1","/tmp/test_file2"])
+    print(cache.get_file_size("/tmp/test_file2"))
