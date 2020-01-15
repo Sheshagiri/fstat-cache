@@ -1,9 +1,9 @@
 from collections import OrderedDict
-import inotify.adapters
-import inotify.constants
 from os import stat
 import os.path
-import threading
+import asyncio
+import pyinotify
+import time
 import sys
 
 __all__ = ["FStatCache"]
@@ -19,17 +19,26 @@ class FStatCache:
         self.store = OrderedDict()
         for file in list_of_files:
             if os.path.isfile(file):
-                self.__set_item__(file, self.__get_file_using_stat__(file))
-        self.watcher = inotify.adapters.Inotify()
-        self.thread = threading.Thread(target=self.__watch_files__, args=[list_of_files])
-        self.thread.start()
+                self.__set_item__(file, self.__get_file_stats__(file))
+        self.wm = pyinotify.WatchManager()
+        self.loop = asyncio.get_event_loop()
+        self.notifier = pyinotify.AsyncioNotifier(self.wm, self.loop, callback=self.handle_change_event)
+        self.__watch_files__(list_of_files)
 
-    def get_file_size(self, file) -> int:
+    def handle_change_event(self, notifier):
         """
-        fetches the size of the given file, from the cache if present else by calling
+        Just stop receiving IO read events after the first
+        iteration (unrealistic example).
+        """
+        print('handle_read callback')
+        # notifier.loop.stop()
+
+    def get_file_stats(self, file) -> int:
+        """
+        fetches the last modification time and size of the given file, from the cache if present else by calling
         the os.stat function.
         :param file: absolute path to the file
-        :return: size of the file in bytes
+        :return: time in unix timestamp and size in bytes
         """
         try:
             return self.__get_item__(file)
@@ -38,7 +47,7 @@ class FStatCache:
             if not os.path.isfile(file):
                 raise FileNotFoundError(file)
             print("file %s is not being watched, fetching details using os.stat instead" % file)
-            return self.__get_file_using_stat(file)
+            return self.__get_file_stats__(file)
 
     def __get_item__(self, file) -> int:
         return self.store[file]
@@ -47,36 +56,34 @@ class FStatCache:
         self.store[file] = size
 
     @staticmethod
-    def __get_file_using_stat__(file) -> int:
+    def __get_file_stats__(file):
         """
-        fetches size of the given file in bytes by calling os.stat function.
+        fetches last modification time and size of of the given file by calling os.stat function.
         :param file: absolute path to the file
-        :return: size of the file in bytes
+        :return: date in unix timestamp and size in bytes
         """
-        return stat(file).st_size
+        file_info = stat(file)
+        return file_info.st_mtime, file_info.st_size
 
     def __watch_files__(self, list_of_files):
         for file in list_of_files:
             try:
                 print("file to watch " + file)
-                self.watcher.add_watch(file)
+                self.wm.add_watch('/tmp', pyinotify.IN_MODIFY)
             except FileNotFoundError:
                 print("no such file: , skipping it " + file)
-
-        for event in self.watcher.event_gen(yield_nones=False):
-            (_, type_names, path, filename) = event
-            print("PATH=[{}] FILENAME=[{}] EVENT_TYPES={}".format(path, filename, type_names))
-            # update the cache when a file is modified/updated
-            if type_names[0] == "IN_CLOSE_WRITE":
-                file_size = self.__get_file_using_stat__(path)
-                print("update the size of %s to %s" % (path, file_size))
-                self.__set_item__(path, file_size)
+        self.loop.run_forever()
 
     def stop(self):
-        self.watcher.event_gen(timeout_s=1)
+        print("stopping now")
+        self.notifier.stop()
+        sys.exit(0)
 
 
 if __name__ == '__main__':
     cache = FStatCache(["/tmp/test_file1", "/tmp/test_file2"])
-    print(cache.get_file_size("/tmp/test_file2"))
+
+    # print(cache.get_file_stats("/tmp/test_file2"))
+    time.sleep(10)
     cache.stop()
+
