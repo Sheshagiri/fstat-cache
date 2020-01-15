@@ -1,4 +1,4 @@
-# fstat-cache is a cache implemented using inotify from Linux.
+# fstat-cache is a cache built using inotify from Linux.
 
 ## Problem Statement/Background
 A typical log monitoring tool has to monitor log files to be able to determine if there were any changes
