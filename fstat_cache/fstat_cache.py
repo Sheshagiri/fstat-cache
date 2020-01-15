@@ -28,14 +28,16 @@ class FStatCache:
         except KeyError:
             # TODO stop gap until I figure out the actual way of dynamically updating the watch list
             print("file is not being watched, fetching details using os.stat")
+            return self.get_file_stats_using_stat(file)
+
+    @staticmethod
+    def get_file_stats_using_stat(file):
+        if os.path.isfile(file):
             file_info = os.stat(file)
-            return {file_info.st_mtime, file_info.st_size}
+            return {"ts": file_info.st_mtime, "size": file_info.st_size}
 
     def __get_item__(self, file):
         return self.store[file]
-
-    def __set_item__(self, file, ts, size):
-        self.store[file] = {ts, size}
 
     def start(self, files, timeout=None):
         """
@@ -71,13 +73,10 @@ class FStatCache:
         while True:
             for event in self.inotify.read(timeout):
                 for flag in flags.from_mask(event.mask):
-                    if flag == flags.CLOSE_WRITE:
+                    if flag == flags.MODIFY:
                         file = watches[event.wd]
                         print("modify event received for %s " % file)
-                        ts, size = self.get_file_stats(file)
-                        self.__set_item__(file, ts, size)
-                        print(self.get_file_stats(file))
-                        print(self.store[file])
+                        self.store[file] = self.get_file_stats_using_stat(file)
 
 
 if __name__ == '__main__':
