@@ -2,3 +2,7 @@
 venv/*
 # ignore the folder that is used by PyCharm
 .idea/*
+# ignore dist folder
+dist/*
+# ignore py cache
+fstat_cache/__pycache__/*

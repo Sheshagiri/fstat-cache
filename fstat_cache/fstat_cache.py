@@ -2,7 +2,8 @@ from collections import OrderedDict
 from inotify_simple import INotify, flags
 import os.path
 import threading
-import time
+
+__all__ = ['FStatCache']
 
 
 class FStatCache:
@@ -78,10 +79,11 @@ class FStatCache:
                         print("modify event received for %s " % file)
                         self.store[file] = self.get_file_stats_using_stat(file)
 
-
+'''
 if __name__ == '__main__':
     cache = FStatCache()
-    cache.start(["/tmp/test_file1"])
+    cache.start(["/tmp/test_file1"], 2)
     print(cache.get_file_stats("/tmp/test_file1"))
     time.sleep(10)
     print(cache.get_file_stats("/tmp/test_file1"))
+'''
