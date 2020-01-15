@@ -3,15 +3,28 @@ import inotify.adapters
 import inotify.constants
 from os import stat
 import os.path
+import threading
+import sys
+
+__all__ = ["FStatCache"]
 
 
 class FStatCache:
+    """
+    Simple caching mechanism using inotify functionality from linux to avoid expensive repeated
+    os.stat call to get the size of a file. When a file is modified we listen for the event and
+    update our cache.
+    """
     def __init__(self, list_of_files):
         self.store = OrderedDict()
+        for file in list_of_files:
+            if os.path.isfile(file):
+                self.__set_item__(file, self.__get_file_using_stat__(file))
         self.watcher = inotify.adapters.Inotify()
-        self.__watch_files__(list_of_files)
+        self.thread = threading.Thread(target=self.__watch_files__, args=[list_of_files])
+        self.thread.start()
 
-    def get_file_size(self, file):
+    def get_file_size(self, file) -> int:
         """
         fetches the size of the given file, from the cache if present else by calling
         the os.stat function.
@@ -21,19 +34,20 @@ class FStatCache:
         try:
             return self.__get_item__(file)
         except KeyError:
+            # TODO: handle dynamically adding the file to watcher
             if not os.path.isfile(file):
                 raise FileNotFoundError(file)
             print("file %s is not being watched, fetching details using os.stat instead" % file)
             return self.__get_file_using_stat(file)
 
-    def __get_item__(self, file):
+    def __get_item__(self, file) -> int:
         return self.store[file]
 
-    def __set_item(self, file, size):
+    def __set_item__(self, file, size) -> None:
         self.store[file] = size
 
     @staticmethod
-    def __get_file_using_stat(file):
+    def __get_file_using_stat__(file) -> int:
         """
         fetches size of the given file in bytes by calling os.stat function.
         :param file: absolute path to the file
@@ -52,12 +66,17 @@ class FStatCache:
         for event in self.watcher.event_gen(yield_nones=False):
             (_, type_names, path, filename) = event
             print("PATH=[{}] FILENAME=[{}] EVENT_TYPES={}".format(path, filename, type_names))
+            # update the cache when a file is modified/updated
             if type_names[0] == "IN_CLOSE_WRITE":
-                file_size = self.__get_file_using_stat(path)
+                file_size = self.__get_file_using_stat__(path)
                 print("update the size of %s to %s" % (path, file_size))
-                self.store[path] = file_size
+                self.__set_item__(path, file_size)
+
+    def stop(self):
+        self.watcher.event_gen(timeout_s=1)
 
 
 if __name__ == '__main__':
-    cache = FStatCache(["/tmp/test_file1","/tmp/test_file2"])
+    cache = FStatCache(["/tmp/test_file1", "/tmp/test_file2"])
     print(cache.get_file_size("/tmp/test_file2"))
+    cache.stop()
