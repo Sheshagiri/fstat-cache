@@ -21,8 +21,8 @@ class FStatCacheTestCase(unittest.TestCase):
 
     def tearDown(self) -> None:
         print("inside teardown")
-        os.system("rm -rf /tmp/test_file_1 /tmp/test_file_2")
         self.cache.stop()
+        os.system("rm -rf /tmp/test_file_1 /tmp/test_file_2")
 
 
 if __name__ == '__main__':

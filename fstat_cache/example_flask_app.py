@@ -28,4 +28,7 @@ def using_stat(name):
 
 
 if __name__ == '__main__':
-    app.run()
+    try:
+        app.run()
+    except KeyboardInterrupt:
+        cache.stop()

@@ -30,7 +30,7 @@ class MonitorThread:
 
         print("watch list %s " % watches)
         while self._running:
-            for event in inotify.read(timeout):
+            for event in inotify.read(timeout=10):
                 for flag in flags.from_mask(event.mask):
                     if flag == flags.MODIFY:
                         file = watches[event.wd]
@@ -72,8 +72,7 @@ class FStatCache:
         except KeyError:
             print("file %s is not present in the cache adding it "
                   "now and fetching the details using os.stat" % file)
-            self.__add_file_to_watch__(file)
-            return self.get_file_stats_using_stat(file)
+            return self.__add_file_to_watch__(file)
 
     @staticmethod
     def get_file_stats_using_stat(file):
@@ -83,6 +82,9 @@ class FStatCache:
 
     def __get_item__(self, file):
         return self.store[file]
+
+    def __set_item__(self, file, stats):
+        self.store[file] = stats
 
     def start(self, files):
         """
@@ -109,7 +111,11 @@ class FStatCache:
         if os.path.isfile(file):
             wd = self.inotify.add_watch(file, flags.MODIFY)
             self.watches[wd] = file
+
         print("watch list %s " % self.watches)
+        stats = self.get_file_stats_using_stat(file)
+        self.__set_item__(file, stats)
+        return stats
 
     def __unwatch_all_files__(self):
         for wd in self.watches:
