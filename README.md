@@ -23,10 +23,11 @@ import time
 
 if __name__ == '__main__':
     cache = FStatCache()
-    cache.start(["/tmp/test_file1"])
+    cache.build(["/tmp/test_file1"])
     print(cache.get_file_stats("/tmp/test_file1"))
     time.sleep(10)
     print(cache.get_file_stats("/tmp/test_file1"))
+    cache.invalidate()
 ```
 
 ## [Another Example](fstat_cache/example_flask_app.py) of consuming this library in a flask app and following are
