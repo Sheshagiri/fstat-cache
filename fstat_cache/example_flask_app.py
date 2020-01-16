@@ -3,7 +3,7 @@ from flask import Flask
 import os.path
 app = Flask(__name__)
 cache = fstat_cache.FStatCache()
-cache.start(["/tmp/test_file_1"])
+cache.build(["/tmp/test_file_1"])
 
 
 @app.route('/cache/<name>')
@@ -26,4 +26,4 @@ if __name__ == '__main__':
     try:
         app.run()
     except KeyboardInterrupt:
-        cache.stop()
+        cache.invalidate()

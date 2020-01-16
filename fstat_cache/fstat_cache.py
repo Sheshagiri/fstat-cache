@@ -86,7 +86,7 @@ class FStatCache:
     def __set_item__(self, file, stats):
         self.store[file] = stats
 
-    def start(self, files):
+    def build(self, files):
         """
         takes list of files and starts watching for changes using inotify from Linux.
         :param files: list of files to watch for changes, only absolute paths.
@@ -97,7 +97,7 @@ class FStatCache:
                 self.store[file] = self.get_file_stats(file)
         self.monitor_thread.start()
 
-    def stop(self):
+    def invalidate(self):
         """
         will invalidate the current cache and remove all the files from the watcher.
         """
@@ -132,10 +132,10 @@ class FStatCache:
 
 if __name__ == '__main__':
     cache = FStatCache()
-    cache.start(["/tmp/test_file1", "/tmp/test_file2"])
+    cache.build(["/tmp/test_file1", "/tmp/test_file2"])
     print(cache.get_file_stats("/tmp/test_file1"))
     time.sleep(6)
-    cache.stop()
+    cache.invalidate()
 '''
     print(cache.get_file_stats("/tmp/test_file3"))
     time.sleep(10)

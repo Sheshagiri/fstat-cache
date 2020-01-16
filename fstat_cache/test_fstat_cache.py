@@ -11,7 +11,7 @@ class FStatCacheTestCase(unittest.TestCase):
         os.system("echo \"validate\" >> /tmp/test_file_1")
         os.system("echo \"validate again\" >> /tmp/test_file_2")
         self.cache = fstat_cache.FStatCache()
-        self.cache.start(["/tmp/test_file_1"])
+        self.cache.build(["/tmp/test_file_1"])
 
     def test_get_file_size_from_cache(self) -> None:
         print("inside test_get_file_size_from_cache")
@@ -24,7 +24,7 @@ class FStatCacheTestCase(unittest.TestCase):
         self.assertEqual(15, self.cache.get_file_stats("/tmp/test_file_2")['size'])
 
     def tearDown(self) -> None:
-        self.cache.stop()
+        self.cache.invalidate()
         os.system("rm -rf /tmp/test_file_1 /tmp/test_file_2")
 
 
