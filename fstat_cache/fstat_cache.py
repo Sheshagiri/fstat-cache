@@ -1,46 +1,11 @@
 from collections import OrderedDict
 from inotify_simple import INotify, flags
 import os.path
-from threading import Thread
+import eventlet
 import time
 
 
 __all__ = ['FStatCache']
-
-
-class MonitorThread:
-    def __init__(self):
-        self._running = True
-
-    def terminate(self):
-        self._running = False
-
-    def run(self, inotify, store, watches):
-        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-        os.system("echo start=" + now + " GMT >> " + FStatCache.self_stats_file)
-        store[FStatCache.self_stats_file] = FStatCache.get_file_stats_using_stat(FStatCache.self_stats_file)
-        for file in store:
-            try:
-                # for now only monitor modification of files
-                print("adding %s to watch list" % file)
-                wd = inotify.add_watch(file, flags.MODIFY)
-                watches[wd] = file
-            except FileNotFoundError:
-                pass
-
-        print("watch list %s " % watches)
-        while self._running:
-            for event in inotify.read():
-                for flag in flags.from_mask(event.mask):
-                    if flag == flags.MODIFY:
-                        file = watches[event.wd]
-                        print("modify event received for %s " % file)
-                        store[file] = FStatCache.get_file_stats_using_stat(file)
-                    # don't know if its bug in inotify_simple but we get IGNORED event when a file is deleted
-                    elif flag == flags.DELETE | flags.IGNORED:
-                        print("received delete event, removing %s from watch list" % file)
-                        inotify.rm_watch(FStatCache.__get_key__(watches, file))
-                        print("watch list %s " % watches)
 
 
 class FStatCache:
@@ -50,15 +15,13 @@ class FStatCache:
     update our cache.
     """
     self_stats_file = "/tmp/fstat-cache-stats"
-    thread_name = "fstatcache"
 
     def __init__(self):
         # this could potentially be an LRU Cache
         self.store = OrderedDict()
         self.inotify = INotify()
         self.watches = {}
-        self.monitor = MonitorThread()
-        self.t = Thread(target=self.monitor.run, args=(self.inotify, self.store, self.watches,))
+        self._running = True
 
     def get_file_stats(self, file):
         """
@@ -94,17 +57,14 @@ class FStatCache:
             # only if the file exists
             if os.path.isfile(file):
                 self.store[file] = self.get_file_stats(file)
-        # thread = threading.Thread(target=self.__watch_files__, args=[timeout])
-        # thread.setName(FStatCache.thread_name)
-        # thread.start()
-        self.t.start()
+
+        eventlet.spawn_n(self.__watch_files__)
 
     def stop(self):
         """
         will invalidate the current cache.
         """
-        self.monitor.terminate()
-        self.t.join()
+        self._running = False
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         os.system("echo stop=" + now + " GMT >> " + FStatCache.self_stats_file)
 
@@ -123,13 +83,11 @@ class FStatCache:
                 pass
 
         print("watch list %s " % self.watches)
-        while True:
-            if self.shutdown:
-                print("shutting down now!")
-                threading.currentThread().run()
-
+        while self._running:
             for event in self.inotify.read(timeout):
                 for flag in flags.from_mask(event.mask):
+                    if self.watches[event.wd] == FStatCache.self_stats_file:
+                        break
                     if flag == flags.MODIFY:
                         file = self.watches[event.wd]
                         print("modify event received for %s " % file)
@@ -152,10 +110,12 @@ class FStatCache:
 
 if __name__ == '__main__':
     cache = FStatCache()
-    cache.start(["/tmp/test_file1", "/tmp/test_file2"])
+    try:
+        while True:
+            cache.start(["/tmp/test_file1", "/tmp/test_file2"])
+    except (KeyboardInterrupt, SystemExit):
+        print("shutting down")
     print(cache.get_file_stats("/tmp/test_file1"))
-    time.sleep(6)
-    cache.stop()
 '''
     print(cache.get_file_stats("/tmp/test_file3"))
     time.sleep(10)
