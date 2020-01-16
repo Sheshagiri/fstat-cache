@@ -6,11 +6,6 @@ cache = fstat_cache.FStatCache()
 cache.start(["/tmp/test_file_1"])
 
 
-@app.route('/')
-def hello():
-    return "Hello World!"
-
-
 @app.route('/cache/<name>')
 def using_cache(name):
     file = "/tmp/{}".format(name)
