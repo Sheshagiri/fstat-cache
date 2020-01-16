@@ -15,7 +15,7 @@ class MonitorThread:
     def terminate(self):
         self._running = False
 
-    def run(self, inotify, store, watches):
+    def run(self, inotify, store, watches, timeout):
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         os.system("echo start=" + now + " GMT >> " + FStatCache.self_stats_file)
         store[FStatCache.self_stats_file] = FStatCache.get_file_stats_using_stat(FStatCache.self_stats_file)
@@ -30,7 +30,7 @@ class MonitorThread:
 
         print("watch list %s " % watches)
         while self._running:
-            for event in inotify.read():
+            for event in inotify.read(timeout):
                 for flag in flags.from_mask(event.mask):
                     if flag == flags.MODIFY:
                         file = watches[event.wd]
@@ -52,13 +52,13 @@ class FStatCache:
     self_stats_file = "/tmp/fstat-cache-stats"
     thread_name = "fstatcache"
 
-    def __init__(self):
+    def __init__(self, timeout=None):
         # this could potentially be an LRU Cache
         self.store = OrderedDict()
         self.inotify = INotify()
         self.watches = {}
         self.monitor = MonitorThread()
-        self.t = Thread(target=self.monitor.run, args=(self.inotify, self.store, self.watches,))
+        self.monitor_thread = Thread(target=self.monitor.run, args=(self.inotify, self.store, self.watches, timeout, ))
 
     def get_file_stats(self, file):
         """
@@ -84,61 +84,26 @@ class FStatCache:
     def __get_item__(self, file):
         return self.store[file]
 
-    def start(self, files, timeout=None):
+    def start(self, files):
         """
         takes list of files and starts watching for changes using inotify from Linux.
         :param files: list of files to watch for changes, only absolute paths.
-        :param timeout: timeout in seconds, default is forever :)
         """
         for file in files:
             # only if the file exists
             if os.path.isfile(file):
                 self.store[file] = self.get_file_stats(file)
-        # thread = threading.Thread(target=self.__watch_files__, args=[timeout])
-        # thread.setName(FStatCache.thread_name)
-        # thread.start()
-        self.t.start()
+        self.monitor_thread.start()
 
     def stop(self):
         """
-        will invalidate the current cache.
+        will invalidate the current cache and remove all the files from the watcher.
         """
         self.monitor.terminate()
-        self.t.join()
+        self.monitor_thread.join()
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         os.system("echo stop=" + now + " GMT >> " + FStatCache.self_stats_file)
-
-    def __watch_files__(self, timeout=None):
-        # special case for shutting down the watcher
-        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-        os.system("echo start=" + now + " GMT >> " + FStatCache.self_stats_file)
-        self.store[FStatCache.self_stats_file] = self.get_file_stats_using_stat(FStatCache.self_stats_file)
-        for file in self.store:
-            try:
-                # for now only monitor modification of files
-                print("adding %s to watch list" % file)
-                wd = self.inotify.add_watch(file, flags.MODIFY)
-                self.watches[wd] = file
-            except FileNotFoundError:
-                pass
-
-        print("watch list %s " % self.watches)
-        while True:
-            if self.shutdown:
-                print("shutting down now!")
-                threading.currentThread().run()
-
-            for event in self.inotify.read(timeout):
-                for flag in flags.from_mask(event.mask):
-                    if flag == flags.MODIFY:
-                        file = self.watches[event.wd]
-                        print("modify event received for %s " % file)
-                        self.store[file] = self.get_file_stats_using_stat(file)
-                    # don't know if its bug in inotify_simple but we get IGNORED event when a file is deleted
-                    elif flag == flags.DELETE | flags.IGNORED:
-                        print("received delete event, removing %s from watch list" % file)
-                        self.inotify.rm_watch(self.__get_key__(self.watches, file))
-                        print("watch list %s " % self.watches)
+        self.__unwatch_all_files__()
 
     def __add_file_to_watch__(self, file):
         if os.path.isfile(file):
@@ -146,17 +111,26 @@ class FStatCache:
             self.watches[wd] = file
         print("watch list %s " % self.watches)
 
-    def __get_key__(self, watches, value):
+    def __unwatch_all_files__(self):
+        for wd in self.watches:
+            print("removing %s from watch list" % self.watches[wd])
+            self.inotify.rm_watch(wd)
+
+    def __remove_from_watch__(self, file):
+        self.inotify.rm_watch(FStatCache.__get_key__(self.watches, file))
+
+    @staticmethod
+    def __get_key__(watches, value):
         return [key for key in watches if (watches[key] == value)]
 
 
+'''
 if __name__ == '__main__':
     cache = FStatCache()
     cache.start(["/tmp/test_file1", "/tmp/test_file2"])
     print(cache.get_file_stats("/tmp/test_file1"))
     time.sleep(6)
     cache.stop()
-'''
     print(cache.get_file_stats("/tmp/test_file3"))
     time.sleep(10)
     print(cache.get_file_stats("/tmp/test_file3"))
