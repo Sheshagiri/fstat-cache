@@ -23,14 +23,15 @@ import time
 
 if __name__ == '__main__':
     cache = FStatCache()
-    cache.start(["/tmp/test_file1"])
+    cache.build(["/tmp/test_file1"])
     print(cache.get_file_stats("/tmp/test_file1"))
     time.sleep(10)
     print(cache.get_file_stats("/tmp/test_file1"))
+    cache.invalidate()
 ```
 
-## Another Example of consuming this library in a flask app
-
+## [Another Example](fstat_cache/example_flask_app.py) of consuming this library in a flask app and following are
+the steps to run it.
 ```bash
 pip install -r requirements.txt
 python fstat_cache/example_flask_app.py
@@ -48,5 +49,9 @@ curl <ip:port>/stat/<path-to-a-file-in-/tmp-dir>
 Works only on Linux. Doesn't work on Windows and MacOS.
 
 ## Benchmarks
+
+TBD
+
+## Demo
 
 TBD

@@ -3,12 +3,7 @@ from flask import Flask
 import os.path
 app = Flask(__name__)
 cache = fstat_cache.FStatCache()
-cache.start(["/tmp/test_file_1"])
-
-
-@app.route('/')
-def hello():
-    return "Hello World!"
+cache.build(["/tmp/test_file_1"])
 
 
 @app.route('/cache/<name>')
@@ -28,4 +23,7 @@ def using_stat(name):
 
 
 if __name__ == '__main__':
-    app.run()
+    try:
+        app.run()
+    except KeyboardInterrupt:
+        cache.invalidate()
