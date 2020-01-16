@@ -124,13 +124,13 @@ class FStatCache:
         return [key for key in watches if (watches[key] == value)]
 
 
-'''
 if __name__ == '__main__':
     cache = FStatCache()
     cache.start(["/tmp/test_file1", "/tmp/test_file2"])
     print(cache.get_file_stats("/tmp/test_file1"))
     time.sleep(6)
     cache.stop()
+'''
     print(cache.get_file_stats("/tmp/test_file3"))
     time.sleep(10)
     print(cache.get_file_stats("/tmp/test_file3"))
