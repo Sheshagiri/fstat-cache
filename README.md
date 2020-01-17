@@ -47,6 +47,7 @@ if __name__ == '__main__':
 Following are the steps to run the flask app.
 ```bash
 pip install -r requirements.txt
+pip install flask
 python fstat_cache/example_flask_app.py
 # in another terminal or a browser
 # will fetch the file size and last modification timestamp from cache
