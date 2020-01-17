@@ -9,7 +9,7 @@ import logging
 __all__ = ['FStatCache']
 logging.basicConfig(filename="fstat-cache.log", format='%(asctime)s %(message)s', filemode='w')
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class MonitorThread(Thread):
@@ -41,7 +41,7 @@ class MonitorThread(Thread):
                 for flag in flags.from_mask(event.mask):
                     if flag == flags.MODIFY:
                         file_path = watches[event.wd]
-                        logger.info("modify event received for %s " % file_path)
+                        logger.debug("modify event received for %s " % file_path)
                         store[file_path] = FStatCache.get_file_stats_using_stat(file_path)
                     # don't know if its bug in inotify_simple but we get IGNORED event when a file is deleted
                     elif flag == flags.DELETE | flags.IGNORED:
@@ -51,7 +51,7 @@ class MonitorThread(Thread):
                         # inotify.rm_watch(event.wd)
                         del watches[event.wd]
                         del store[watches[wd]]
-                        logger.info("watch list: %s " % watches)
+                        logger.debug("watch list: %s " % watches)
 
 
 class FStatCache(object):
@@ -130,7 +130,6 @@ class FStatCache(object):
             wd = self._inotify.add_watch(file_path, flags.MODIFY)
             self._watches[wd] = file_path
 
-        logger.info("watch list: %s " % self._watches)
         stats = self.get_file_stats_using_stat(file_path)
         self.__set_item(file_path, stats)
         return stats
@@ -142,7 +141,7 @@ class FStatCache(object):
 
     def __unwatch_all_files(self):
         for wd in list(self._watches):
-            logger.info("removing %s from watch list" % self._watches[wd])
+            logger.debug("removing %s from watch list" % self._watches[wd])
             self._inotify.rm_watch(wd)
             del self._watches[wd]
 
