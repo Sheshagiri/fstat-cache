@@ -61,7 +61,7 @@ curl <ip:port>/stat/<path-to-a-file-in-/tmp-dir>
 ## Running an example
 ```bash
 cd fstat-cache/fstat_cache
-python python fstat_cache.py
+python fstat_cache.py
 ```
 
 you should see an output similar to
