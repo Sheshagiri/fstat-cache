@@ -6,3 +6,5 @@ venv/*
 dist/*
 # ignore py cache
 fstat_cache/__pycache__/*
+# ignore pycache from tests
+tests/__pycache__/*

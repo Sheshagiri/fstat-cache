@@ -48,6 +48,12 @@ curl <ip:port>/stat/<path-to-a-file-in-/tmp-dir>
 
 Works only on Linux. Doesn't work on Windows and MacOS.
 
+## Running tests
+```bash
+cd fstat-cache/tests
+nosetests -v
+```
+
 ## Benchmarks
 
 TBD
