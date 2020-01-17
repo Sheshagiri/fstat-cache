@@ -5,10 +5,10 @@ setup(
     version='0.0.1',
     author='Sheshagiri',
     author_email='msheshagirirao@gmail.com',
-    url='http://pypi.python.org/pypi/TowelStuff/',
+    url='http://pypi.python.org/pypi/FStatCache/',
     packages=['fstat_cache'],
     license='LICENSE.txt',
-    description='os.cache implementation using inotify from linux kernel'   ,
+    description='an abstraction layer of os.stat implemented using inotify feature from linux kernel',
     long_description=open('README.md').read(),
     install_requires=[
         "inotify-simple==1.2.1",
