@@ -3,9 +3,13 @@ from inotify_simple import INotify, flags
 import os.path
 from threading import Thread
 import time
+import logging
 
 
 __all__ = ['FStatCache']
+logging.basicConfig(filename="fstat-cache.log", format='%(asctime)s %(message)s', filemode='w')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class MonitorThread(Thread):
@@ -22,28 +26,29 @@ class MonitorThread(Thread):
         for file_path in list(store):
             try:
                 # for now only monitor modification of files
-                print("adding %s to watch list" % file_path)
+                logger.info("adding %s to watch list" % file_path)
                 wd = inotify.add_watch(file_path, flags.MODIFY)
                 watches[wd] = file_path
             except FileNotFoundError:
                 pass
 
-        print("watch list %s " % watches)
+        # print("watch list %s " % watches)
         while self._running:
             for event in inotify.read(timeout=timeout):
                 for flag in flags.from_mask(event.mask):
                     if flag == flags.MODIFY:
                         file_path = watches[event.wd]
-                        print("modify event received for %s " % file_path)
+                        logger.info("modify event received for %s " % file_path)
                         store[file_path] = FStatCache.get_file_stats_using_stat(file_path)
                     # don't know if its bug in inotify_simple but we get IGNORED event when a file is deleted
                     elif flag == flags.DELETE | flags.IGNORED:
-                        print("received delete event, removing %s from watch list" % file_path)
+                        logger.info("received delete event, removing %s from watch list" % file_path)
                         # NOTE: inoitfy already deletes a watch on file delete so
                         # we don't need to call rm_watch ourselves
                         # inotify.rm_watch(event.wd)
                         del watches[event.wd]
-                        print("watch list: %s " % watches)
+                        del store[watches[wd]]
+                        logger.info("watch list: %s " % watches)
 
 
 class FStatCache(object):
@@ -73,12 +78,19 @@ class FStatCache(object):
         try:
             return self.__get_item(file_path)
         except KeyError:
-            print("file %s is not present in the cache adding it "
-                  "now and fetching the details using os.stat" % file_path)
+            logger.info("file %s is not present in the cache adding it "
+                        "now and fetching the details using os.stat" % file_path)
             return self.__add_file_to_watch(file_path)
 
     @staticmethod
     def get_file_stats_using_stat(file_path):
+        """
+        takes absolute path to a file and returns the last modification time in unix timestamp and size
+        in bytes by using os.stat function. This is available here only to get some benchmarks to compare
+        with this cache implementation.
+        :param file_path:
+        :return: { timestamp, size}
+        """
         if os.path.isfile(file_path):
             file_info = os.stat(file_path)
             return {"ts": file_info.st_mtime, "size": file_info.st_size}
@@ -115,20 +127,19 @@ class FStatCache(object):
             wd = self._inotify.add_watch(file_path, flags.MODIFY)
             self._watches[wd] = file_path
 
-        print("watch list: %s " % self._watches)
+        logger.info("watch list: %s " % self._watches)
         stats = self.get_file_stats_using_stat(file_path)
         self.__set_item(file_path, stats)
         return stats
 
     def __remove_from_watch(self, file_path):
         wd = FStatCache.__get_key(self._watches, file_path)
-        print(wd)
         self._inotify.rm_watch(wd)
         del self._watches[wd]
 
     def __unwatch_all_files(self):
         for wd in list(self._watches):
-            print("removing %s from watch list" % self._watches[wd])
+            logger.info("removing %s from watch list" % self._watches[wd])
             self._inotify.rm_watch(wd)
             del self._watches[wd]
 
@@ -170,7 +181,6 @@ if __name__ == '__main__':
     cache.build(["/tmp/test_file1", "/tmp/test_file2"])
     print(cache.get_file_stats("/tmp/test_file1"))
     print(cache.list_files_in_cache())
-    cache.remove_from_watch("/tmp/test_file2")
     time.sleep(6)
     cache.invalidate()
 '''

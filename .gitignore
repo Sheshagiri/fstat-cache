@@ -8,3 +8,5 @@ dist/*
 fstat_cache/__pycache__/*
 # ignore pycache from tests
 tests/__pycache__/*
+# ignore the log file
+fstat_cache/fstat-cache.log

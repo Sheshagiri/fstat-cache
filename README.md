@@ -15,6 +15,17 @@ Further more LRU(Least Recently Used) kind of cache implementation can be used t
 of files. Where the least recently used files will be replaced with a new file who details were requested. This way 
 we can manage resources efficiently on low powered devices as well.
 
+## Features
+- Pre build the cache by supplying a list of files to monitor for changes
+- When one of the file being watched is modified we update the stats(last modification time and size) of that file 
+in our cache by invoking `os.stat`
+- If a file is accessed for first time which is not present in the original watch list then the stats are 
+fetched using `os.stat` and the file will be added to the watch list of `inotify` and subsequent calls to 
+get stats will be faster as they will be returned from the cache
+- We only listen for `Modify` and `Delete` events from `inotify` and update the cache accordingly
+- calling `invalidate` will un-watch all the files in the cache from `inotify` and clear the cache
+- verified with `inotify-simple v1.2.1` and `Python 3.7.0`
+
 ## An Example
 
 ```python
@@ -43,10 +54,6 @@ curl <ip:port>/cache/<path-to-a-file-in-/tmp-dir>
 curl <ip:port>/stat/<path-to-a-file-in-/tmp-dir>
 # eg: curl http://127.0.0.1:5000/stat/test_file_1
 ```
-
-## Limitations
-
-Works only on Linux. Doesn't work on Windows and MacOS.
 
 ## Running tests
 ```bash
@@ -78,9 +85,24 @@ OK
 ```
 
 ## Benchmarks
+Following are the [benchmarks](fstat_cache/benchmarks.py) on getting the stats of 10,000 files 100 times using this cache library vs using `os.stat`
+```bash
+extreme@a11973d3ad9c:/codefresh/volume/waas/fstat-cache/fstat_cache$ python benchmarks.py
+creating 10000 temp files
+created temp files in 1.953893
+building cache
+built cache in 2.174557
+starting benchmarks now
+using cache: 0.6116518000053475
+using stat: 7.352727800011053
+cleaning up tmp files
+extreme@a11973d3ad9c:/codefresh/volume/waas/fstat-cache/fstat_cache$
+```
+
+## asciinema demo
 
 TBD
 
-## Demo
-
-TBD
+## Limitations
+- As of now only absolute paths are supported, there is not support for watching the whole directory
+- Works only on Linux. Doesn't work on Windows and MacOS
