@@ -13,13 +13,16 @@ logger.setLevel(logging.DEBUG)
 
 
 class MonitorThread(Thread):
+    """
+
+    """
     def __init__(self):
         self._running = True
 
     def terminate(self):
         self._running = False
 
-    def run(self, inotify, store, watches, timeout):
+    def run(self, inotify: INotify, store: OrderedDict, watches: dict, timeout: int):
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         os.system("echo start=" + now + " GMT >> " + FStatCache.self_stats_file)
         store[FStatCache.self_stats_file] = FStatCache.get_file_stats_using_stat(FStatCache.self_stats_file)
@@ -68,7 +71,7 @@ class FStatCache(object):
         self._monitor_thread = Thread(target=self._monitor.run, args=(self._inotify, self._store,
                                                                       self._watches, timeout, ))
 
-    def get_file_stats(self, file_path):
+    def get_file_stats(self, file_path: str):
         """
         takes absolute path to a file and returns the last modification time in unix timestamp and size
         in bytes.
@@ -83,7 +86,7 @@ class FStatCache(object):
             return self.__add_file_to_watch(file_path)
 
     @staticmethod
-    def get_file_stats_using_stat(file_path):
+    def get_file_stats_using_stat(file_path: str):
         """
         takes absolute path to a file and returns the last modification time in unix timestamp and size
         in bytes by using os.stat function. This is available here only to get some benchmarks to compare
@@ -95,13 +98,13 @@ class FStatCache(object):
             file_info = os.stat(file_path)
             return {"ts": file_info.st_mtime, "size": file_info.st_size}
 
-    def __get_item(self, file_path):
+    def __get_item(self, file_path: str):
         return self._store[file_path]
 
-    def __set_item(self, file_path, stats):
+    def __set_item(self, file_path: str, stats: dict):
         self._store[file_path] = stats
 
-    def build(self, file_paths):
+    def build(self, file_paths: list):
         """
         takes list of files and starts watching for changes using inotify from Linux.
         :param file_paths: list of files to watch for changes, only absolute paths.
@@ -122,7 +125,7 @@ class FStatCache(object):
         os.system("echo stop=" + now + " GMT >> " + FStatCache.self_stats_file)
         self.__unwatch_all_files()
 
-    def __add_file_to_watch(self, file_path):
+    def __add_file_to_watch(self, file_path: str):
         if os.path.isfile(file_path):
             wd = self._inotify.add_watch(file_path, flags.MODIFY)
             self._watches[wd] = file_path
@@ -132,7 +135,7 @@ class FStatCache(object):
         self.__set_item(file_path, stats)
         return stats
 
-    def __remove_from_watch(self, file_path):
+    def __remove_from_watch(self, file_path: str):
         wd = FStatCache.__get_key(self._watches, file_path)
         self._inotify.rm_watch(wd)
         del self._watches[wd]
@@ -146,7 +149,7 @@ class FStatCache(object):
     def list_files_in_cache(self):
         return list(self._watches.values())
 
-    def add_file_to_watch(self, file_path):
+    def add_file_to_watch(self, file_path: str):
         """
         will add the given file to watch list, stats in cache will be updated when
         a file modification event is received
@@ -157,7 +160,7 @@ class FStatCache(object):
         wd = self._inotify.add_watch(file_path, flags.MODIFY)
         self._watches[wd] = file_path
 
-    def remove_from_watch(self, file_path):
+    def remove_from_watch(self, file_path: str):
         """
         will remove the file from watcher, will raise an error if the file is not
         being watched
@@ -170,7 +173,7 @@ class FStatCache(object):
         self.__remove_from_watch(file_path)
 
     @staticmethod
-    def __get_key(watches, value):
+    def __get_key(watches: dict, value: str):
         for item in watches:
             if watches[item] == value:
                 return item
