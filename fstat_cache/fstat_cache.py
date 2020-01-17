@@ -9,17 +9,26 @@ import logging
 __all__ = ['FStatCache']
 logging.basicConfig(filename="fstat-cache.log", format='%(asctime)s %(message)s', filemode='w')
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class MonitorThread(Thread):
+    """
+    Thread that runs inotify.read() on all the files that we want to watch for change events.
+    For now we are only interested in MODIFY and DELETE events. When a MODIFY event is received, we eagerly go and fetch
+    the updated timestamp and the size of the file and save them in our cache. This kind of fetch mechanism will help us
+    keep the latest details for a file in our cache. Please note that the events them self are returned in a serial
+    fashion from the inotify_simple library. If this becomes a bottleneck we could start using a queue and push the
+    fetch events(os.stat) to that queue. We could potentially have multiple threads consuming from that queue which will
+    fetch the details of the file using os.stat.
+    """
     def __init__(self):
         self._running = True
 
     def terminate(self):
         self._running = False
 
-    def run(self, inotify, store, watches, timeout):
+    def run(self, inotify: INotify, store: OrderedDict, watches: dict, timeout: int):
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         os.system("echo start=" + now + " GMT >> " + FStatCache.self_stats_file)
         store[FStatCache.self_stats_file] = FStatCache.get_file_stats_using_stat(FStatCache.self_stats_file)
@@ -38,24 +47,23 @@ class MonitorThread(Thread):
                 for flag in flags.from_mask(event.mask):
                     if flag == flags.MODIFY:
                         file_path = watches[event.wd]
-                        logger.info("modify event received for %s " % file_path)
+                        logger.debug("modify event received for %s " % file_path)
                         store[file_path] = FStatCache.get_file_stats_using_stat(file_path)
-                    # don't know if its bug in inotify_simple but we get IGNORED event when a file is deleted
+                    # don't know if its a bug in inotify_simple but we get IGNORED event when a file is deleted
                     elif flag == flags.DELETE | flags.IGNORED:
                         logger.info("received delete event, removing %s from watch list" % file_path)
-                        # NOTE: inoitfy already deletes a watch on file delete so
-                        # we don't need to call rm_watch ourselves
+                        # NOTE: inoitfy already deletes a watch on file delete so we don't need to call rm_watch
+                        # ourself
                         # inotify.rm_watch(event.wd)
                         del watches[event.wd]
                         del store[watches[wd]]
-                        logger.info("watch list: %s " % watches)
+                        logger.debug("watch list: %s " % watches)
 
 
 class FStatCache(object):
     """
     Simple caching mechanism using inotify functionality from linux to avoid expensive repeated
-    os.stat call to get the size of a file. When a file is modified we listen for the event and
-    update our cache.
+    os.stat calls to the latest details of a file. When a file is modified we listen for the event and update our cache.
     """
     self_stats_file = "/tmp/fstat-cache-stats"
 
@@ -68,10 +76,9 @@ class FStatCache(object):
         self._monitor_thread = Thread(target=self._monitor.run, args=(self._inotify, self._store,
                                                                       self._watches, timeout, ))
 
-    def get_file_stats(self, file_path):
+    def get_file_stats(self, file_path: str):
         """
-        takes absolute path to a file and returns the last modification time in unix timestamp and size
-        in bytes.
+        takes absolute path to a file and returns the last modification time and size in bytes.
         :param file_path: absolute path to a file
         :return: { timestamp, size}
         """
@@ -83,9 +90,9 @@ class FStatCache(object):
             return self.__add_file_to_watch(file_path)
 
     @staticmethod
-    def get_file_stats_using_stat(file_path):
+    def get_file_stats_using_stat(file_path: str):
         """
-        takes absolute path to a file and returns the last modification time in unix timestamp and size
+        takes absolute path to a file and returns the last modification time and size
         in bytes by using os.stat function. This is available here only to get some benchmarks to compare
         with this cache implementation.
         :param file_path:
@@ -95,13 +102,13 @@ class FStatCache(object):
             file_info = os.stat(file_path)
             return {"ts": file_info.st_mtime, "size": file_info.st_size}
 
-    def __get_item(self, file_path):
+    def __get_item(self, file_path: str):
         return self._store[file_path]
 
-    def __set_item(self, file_path, stats):
+    def __set_item(self, file_path: str, stats: dict):
         self._store[file_path] = stats
 
-    def build(self, file_paths):
+    def build(self, file_paths: list):
         """
         takes list of files and starts watching for changes using inotify from Linux.
         :param file_paths: list of files to watch for changes, only absolute paths.
@@ -122,31 +129,30 @@ class FStatCache(object):
         os.system("echo stop=" + now + " GMT >> " + FStatCache.self_stats_file)
         self.__unwatch_all_files()
 
-    def __add_file_to_watch(self, file_path):
+    def __add_file_to_watch(self, file_path: str):
         if os.path.isfile(file_path):
             wd = self._inotify.add_watch(file_path, flags.MODIFY)
             self._watches[wd] = file_path
 
-        logger.info("watch list: %s " % self._watches)
         stats = self.get_file_stats_using_stat(file_path)
         self.__set_item(file_path, stats)
         return stats
 
-    def __remove_from_watch(self, file_path):
+    def __remove_from_watch(self, file_path: str):
         wd = FStatCache.__get_key(self._watches, file_path)
         self._inotify.rm_watch(wd)
         del self._watches[wd]
 
     def __unwatch_all_files(self):
         for wd in list(self._watches):
-            logger.info("removing %s from watch list" % self._watches[wd])
+            logger.debug("removing %s from watch list" % self._watches[wd])
             self._inotify.rm_watch(wd)
             del self._watches[wd]
 
     def list_files_in_cache(self):
         return list(self._watches.values())
 
-    def add_file_to_watch(self, file_path):
+    def add_file_to_watch(self, file_path: str):
         """
         will add the given file to watch list, stats in cache will be updated when
         a file modification event is received
@@ -157,7 +163,7 @@ class FStatCache(object):
         wd = self._inotify.add_watch(file_path, flags.MODIFY)
         self._watches[wd] = file_path
 
-    def remove_from_watch(self, file_path):
+    def remove_from_watch(self, file_path: str):
         """
         will remove the file from watcher, will raise an error if the file is not
         being watched
@@ -170,12 +176,12 @@ class FStatCache(object):
         self.__remove_from_watch(file_path)
 
     @staticmethod
-    def __get_key(watches, value):
+    def __get_key(watches: dict, value: str):
         for item in watches:
             if watches[item] == value:
                 return item
 
-
+'''
 if __name__ == '__main__':
     cache = FStatCache()
     cache.build(["/tmp/test_file1", "/tmp/test_file2"])
@@ -183,7 +189,6 @@ if __name__ == '__main__':
     print(cache.list_files_in_cache())
     time.sleep(6)
     cache.invalidate()
-'''
     print(cache.get_file_stats("/tmp/test_file3"))
     time.sleep(10)
     print(cache.get_file_stats("/tmp/test_file3"))

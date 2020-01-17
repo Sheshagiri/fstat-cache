@@ -5,6 +5,7 @@ import functools
 import time
 import os
 
+
 def create_temp_files(size):
     count = 0
     temp_files = []
@@ -46,17 +47,17 @@ if __name__ == '__main__':
     start_time = time.time()
     print("creating %s temp files" % 10000)
     random_files = create_temp_files(10000)
-    print("created temp files in %f " % (time.time() - start_time))
+    print("created temp files in %f seconds" % (time.time() - start_time))
     print("building cache")
     stat_time = time.time()
     fs_cache = fstat_cache.FStatCache()
     fs_cache.build(random_files)
-    print("built cache in %f " % (time.time() - start_time))
+    print("built cache in %f seconds" % (time.time() - start_time))
     print("starting benchmarks now")
     cache_timer = timeit.Timer(functools.partial(using_cache, fs_cache))
-    print("using fstat-cache library: %s " % cache_timer.timeit(100))
+    print("using fstat-cache library: %f seconds" % cache_timer.timeit(100))
     stat_time = timeit.Timer(functools.partial(using_stat, fs_cache))
-    print("using os.stat: %s " % stat_time.timeit(100))
+    print("using os.stat: %f seconds" % stat_time.timeit(100))
     fs_cache.invalidate()
     print("cleaning up tmp files")
     clean_up_temp_files(random_files)
