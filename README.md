@@ -90,17 +90,19 @@ OK
 ## Benchmarks
 Following are the [benchmarks](fstat_cache/benchmarks.py) on getting the stats of 10,000 files 100 times using this cache library vs using `os.stat`
 ```bash
-extreme@a11973d3ad9c:/codefresh/volume/waas/fstat-cache/fstat_cache$ python benchmarks.py
+sheshagiri@ubuntu-vm-1:~/workspace/sheshagiri/fstat-cache/fstat_cache$ python3 benchmarks.py
 creating 10000 temp files
-created temp files in 1.953893
+created temp files in 0.393253 seconds
 building cache
-built cache in 2.174557
+built cache in 0.756536 seconds
 starting benchmarks now
-using cache: 0.6116518000053475
-using stat: 7.352727800011053
+using fstat-cache library: 0.295163 seconds
+using os.stat: 3.294907 seconds
 cleaning up tmp files
-extreme@a11973d3ad9c:/codefresh/volume/waas/fstat-cache/fstat_cache$
+sheshagiri@ubuntu-vm-1:~/workspace/sheshagiri/fstat-cache/fstat_cache$
 ```
+On a Ubuntu-18 VM with 4GiB Memory and 1 vCPU running on VMware Fusion.
+PS: I had to increase the ulimit size.
 
 ## asciinema demo
 
