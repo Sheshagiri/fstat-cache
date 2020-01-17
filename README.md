@@ -85,7 +85,7 @@ OK
 ```
 
 ## Benchmarks
-Following are the beanchmarks on getting the stats of 10,000 files 100 times using this cache library vs using `os.stat`
+Following are the [benchmarks](fstat_cache/benchmarks.py) on getting the stats of 10,000 files 100 times using this cache library vs using `os.stat`
 ```bash
 extreme@a11973d3ad9c:/codefresh/volume/waas/fstat-cache/fstat_cache$ python benchmarks.py
 creating 10000 temp files

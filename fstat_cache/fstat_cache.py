@@ -47,6 +47,7 @@ class MonitorThread(Thread):
                         # we don't need to call rm_watch ourselves
                         # inotify.rm_watch(event.wd)
                         del watches[event.wd]
+                        del store[watches[wd]]
                         logger.info("watch list: %s " % watches)
 
 
