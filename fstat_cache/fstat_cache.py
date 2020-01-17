@@ -14,7 +14,13 @@ logger.setLevel(logging.INFO)
 
 class MonitorThread(Thread):
     """
-
+    Thread that runs inotify.read() on all the files that we want to watch for change events.
+    For now we are only interested in MODIFY and DELETE events. When a MODIFY event is received, we eagerly go and fetch
+    the updated timestamp and the size of the file and save them in our cache. This kind of fetch mechanism will help us
+    keep the latest details for a file in our cache. Please note that the events them self are returned in a serial
+    fashion from the inotify_simple library. If this becomes a bottleneck we could start using a queue and push the
+    fetch events(os.stat) to that queue. We could potentially have multiple threads consuming from that queue which will
+    fetch the details of the file using os.stat.
     """
     def __init__(self):
         self._running = True
@@ -43,11 +49,11 @@ class MonitorThread(Thread):
                         file_path = watches[event.wd]
                         logger.debug("modify event received for %s " % file_path)
                         store[file_path] = FStatCache.get_file_stats_using_stat(file_path)
-                    # don't know if its bug in inotify_simple but we get IGNORED event when a file is deleted
+                    # don't know if its a bug in inotify_simple but we get IGNORED event when a file is deleted
                     elif flag == flags.DELETE | flags.IGNORED:
                         logger.info("received delete event, removing %s from watch list" % file_path)
-                        # NOTE: inoitfy already deletes a watch on file delete so
-                        # we don't need to call rm_watch ourselves
+                        # NOTE: inoitfy already deletes a watch on file delete so we don't need to call rm_watch
+                        # ourself
                         # inotify.rm_watch(event.wd)
                         del watches[event.wd]
                         del store[watches[wd]]
@@ -57,8 +63,7 @@ class MonitorThread(Thread):
 class FStatCache(object):
     """
     Simple caching mechanism using inotify functionality from linux to avoid expensive repeated
-    os.stat call to get the size of a file. When a file is modified we listen for the event and
-    update our cache.
+    os.stat calls to the latest details of a file. When a file is modified we listen for the event and update our cache.
     """
     self_stats_file = "/tmp/fstat-cache-stats"
 
@@ -73,8 +78,7 @@ class FStatCache(object):
 
     def get_file_stats(self, file_path: str):
         """
-        takes absolute path to a file and returns the last modification time in unix timestamp and size
-        in bytes.
+        takes absolute path to a file and returns the last modification time and size in bytes.
         :param file_path: absolute path to a file
         :return: { timestamp, size}
         """
@@ -88,7 +92,7 @@ class FStatCache(object):
     @staticmethod
     def get_file_stats_using_stat(file_path: str):
         """
-        takes absolute path to a file and returns the last modification time in unix timestamp and size
+        takes absolute path to a file and returns the last modification time and size
         in bytes by using os.stat function. This is available here only to get some benchmarks to compare
         with this cache implementation.
         :param file_path:
@@ -177,7 +181,7 @@ class FStatCache(object):
             if watches[item] == value:
                 return item
 
-
+'''
 if __name__ == '__main__':
     cache = FStatCache()
     cache.build(["/tmp/test_file1", "/tmp/test_file2"])
@@ -185,7 +189,6 @@ if __name__ == '__main__':
     print(cache.list_files_in_cache())
     time.sleep(6)
     cache.invalidate()
-'''
     print(cache.get_file_stats("/tmp/test_file3"))
     time.sleep(10)
     print(cache.get_file_stats("/tmp/test_file3"))
