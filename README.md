@@ -88,7 +88,7 @@ OK
 ```
 
 ## Benchmarks
-Following are the [benchmarks](fstat_cache/benchmarks.py) on getting the stats of 10,000 files 100 times using this cache library vs using `os.stat`
+Following are the [benchmarks](examples/benchmarks.py) on getting the stats of 10,000 files 100 times using this cache library vs using `os.stat`
 ```bash
 sheshagiri@ubuntu-vm-1:~/workspace/sheshagiri/fstat-cache/fstat_cache$ python3 benchmarks.py
 creating 10000 temp files

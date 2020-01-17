@@ -41,7 +41,7 @@ class FStatCacheTestCase(unittest.TestCase):
         self._write_to_file(random_file, "some random data")
         self.cache.remove_from_watch(random_file)
         self.assertNotIn(random_file, self.cache.list_files_in_cache())
-        self.failUnlessRaises(KeyError, lambda: self.cache.remove_from_watch("validate"))
+        self.assertRaises(KeyError, lambda: self.cache.remove_from_watch("validate"))
 
     def tearDown(self) -> None:
         self.cache.invalidate()
