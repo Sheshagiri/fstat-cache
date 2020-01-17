@@ -37,12 +37,14 @@ if __name__ == '__main__':
     cache.build(["/tmp/test_file1"])
     print(cache.get_file_stats("/tmp/test_file1"))
     time.sleep(10)
+    # from another terminal update /tmp/test_file1 and you should see the update info when next line is run
+    # after 10 seconds
     print(cache.get_file_stats("/tmp/test_file1"))
     cache.invalidate()
 ```
 
-## [Another Example](fstat_cache/example_flask_app.py) of consuming this library in a flask app and following are
-the steps to run it.
+## [Another Example](fstat_cache/example_flask_app.py) of consuming this library in a flask app
+Following are the steps to run the flask app.
 ```bash
 pip install -r requirements.txt
 python fstat_cache/example_flask_app.py
