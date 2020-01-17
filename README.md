@@ -58,6 +58,23 @@ curl <ip:port>/stat/<path-to-a-file-in-/tmp-dir>
 # eg: curl http://127.0.0.1:5000/stat/test_file_1
 ```
 
+## Running an example
+```bash
+cd fstat-cache/fstat_cache
+python python fstat_cache.py
+```
+
+you should see an output similar to
+```bash
+extreme@a11973d3ad9c:/codefresh/volume/waas/fstat-cache/fstat_cache$ python fstat_cache.py
+stats for /tmp/test_file1 = {'ts': 1579282851.43988, 'size': 47}
+stats for /tmp/test_file2 = {'ts': 1579282851.43988, 'size': 67}
+list of files in the cache = ['/tmp/test_file1', '/tmp/test_file2']
+stats for /tmp/test_file1 = {'ts': 1579282851.43988, 'size': 61}
+stats for /tmp/test_file2 = {'ts': 1579282851.44988, 'size': 82}
+extreme@a11973d3ad9c:/codefresh/volume/waas/fstat-cache/fstat_cache$
+```
+
 ## Running tests
 ```bash
 cd fstat-cache/tests
@@ -109,5 +126,7 @@ PS: I had to increase the ulimit size.
 TBD
 
 ## Limitations
+- Only works for files that are already existing before creating the cache as we are only listening for MODIFY and 
+DELETE events from inotify python wrapper
 - As of now only absolute paths are supported, there is not support for watching the whole directory
 - Works only on Linux. Doesn't work on Windows and MacOS

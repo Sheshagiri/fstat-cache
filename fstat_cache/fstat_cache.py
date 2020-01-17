@@ -175,13 +175,15 @@ if __name__ == '__main__':
     for testing purposes only, run the following command
     $ python fstat_cache.py
     """
+    os.system("echo validate_1 >> /tmp/test_file1")
+    os.system("echo validate_123 >> /tmp/test_file2")
     cache = FStatCache()
     cache.build(["/tmp/test_file1", "/tmp/test_file2"])
     print("stats for /tmp/test_file1 = %s " % cache.get_file_stats("/tmp/test_file1"))
     print("stats for /tmp/test_file2 = %s " % cache.get_file_stats("/tmp/test_file2"))
     print("list of files in the cache = %s " % cache.list_files_in_cache())
-    os.system("echo validate >> /tmp/test_file1")
-    os.system("echo validate >> /tmp/test_file2")
+    os.system("echo validate_1234 >> /tmp/test_file1")
+    os.system("echo validate_56789 >> /tmp/test_file2")
     print("stats for /tmp/test_file1 = %s " % cache.get_file_stats("/tmp/test_file1"))
     print("stats for /tmp/test_file2 = %s " % cache.get_file_stats("/tmp/test_file2"))
     cache.invalidate()
