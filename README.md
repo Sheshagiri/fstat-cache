@@ -53,6 +53,29 @@ Works only on Linux. Doesn't work on Windows and MacOS.
 cd fstat-cache/tests
 nosetests -v
 ```
+### Tests with coverage
+```bash
+nosetests -v --with-coverage --cover-package=fstat_cache
+```
+sample output 
+```bash
+$ nosetests -v --with-coverage --cover-package=fstat_cache
+test_add_file_to_watch_and_remove (tests.test_fstat_cache.FStatCacheTestCase) ... ok
+test_get_file_size_from_cache (tests.test_fstat_cache.FStatCacheTestCase) ... ok
+test_get_file_size_using_stat (tests.test_fstat_cache.FStatCacheTestCase) ... ok
+test_list_files_in_cache (tests.test_fstat_cache.FStatCacheTestCase) ... ok
+
+Name                         Stmts   Miss  Cover
+------------------------------------------------
+fstat_cache/__init__.py          2      0   100%
+fstat_cache/fstat_cache.py     108     20    81%
+------------------------------------------------
+TOTAL                          110     20    82%
+----------------------------------------------------------------------
+Ran 4 tests in 0.025s
+
+OK
+```
 
 ## Benchmarks
 

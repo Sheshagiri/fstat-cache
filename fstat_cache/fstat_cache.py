@@ -19,7 +19,7 @@ class MonitorThread(Thread):
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         os.system("echo start=" + now + " GMT >> " + FStatCache.self_stats_file)
         store[FStatCache.self_stats_file] = FStatCache.get_file_stats_using_stat(FStatCache.self_stats_file)
-        for file_path in store:
+        for file_path in list(store):
             try:
                 # for now only monitor modification of files
                 print("adding %s to watch list" % file_path)
@@ -39,8 +39,8 @@ class MonitorThread(Thread):
                     # don't know if its bug in inotify_simple but we get IGNORED event when a file is deleted
                     elif flag == flags.DELETE | flags.IGNORED:
                         print("received delete event, removing %s from watch list" % file_path)
-                        # NOTE: inoitfy already delets a watch on file delete so
-                        # we don't need to call rm_watch outselves
+                        # NOTE: inoitfy already deletes a watch on file delete so
+                        # we don't need to call rm_watch ourselves
                         # inotify.rm_watch(event.wd)
                         del watches[event.wd]
                         print("watch list: %s " % watches)
@@ -53,15 +53,15 @@ class FStatCache(object):
     update our cache.
     """
     self_stats_file = "/tmp/fstat-cache-stats"
-    thread_name = "fstatcache"
 
     def __init__(self, timeout=None):
         # this could potentially be an LRU Cache
-        self.store = OrderedDict()
-        self.inotify = INotify()
-        self.watches = {}
-        self.monitor = MonitorThread()
-        self.monitor_thread = Thread(target=self.monitor.run, args=(self.inotify, self.store, self.watches, timeout, ))
+        self._store = OrderedDict()
+        self._inotify = INotify()
+        self._watches = {}
+        self._monitor = MonitorThread()
+        self._monitor_thread = Thread(target=self._monitor.run, args=(self._inotify, self._store,
+                                                                      self._watches, timeout, ))
 
     def get_file_stats(self, file_path):
         """
@@ -71,11 +71,11 @@ class FStatCache(object):
         :return: { timestamp, size}
         """
         try:
-            return self.__get_item__(file_path)
+            return self.__get_item(file_path)
         except KeyError:
             print("file %s is not present in the cache adding it "
                   "now and fetching the details using os.stat" % file_path)
-            return self.__add_file_to_watch__(file_path)
+            return self.__add_file_to_watch(file_path)
 
     @staticmethod
     def get_file_stats_using_stat(file_path):
@@ -83,11 +83,11 @@ class FStatCache(object):
             file_info = os.stat(file_path)
             return {"ts": file_info.st_mtime, "size": file_info.st_size}
 
-    def __get_item__(self, file_path):
-        return self.store[file_path]
+    def __get_item(self, file_path):
+        return self._store[file_path]
 
-    def __set_item__(self, file_path, stats):
-        self.store[file_path] = stats
+    def __set_item(self, file_path, stats):
+        self._store[file_path] = stats
 
     def build(self, file_paths):
         """
@@ -97,46 +97,80 @@ class FStatCache(object):
         for file_path in file_paths:
             # only if the file exists
             if os.path.isfile(file_path):
-                self.store[file_path] = self.get_file_stats(file_path)
-        self.monitor_thread.start()
+                self._store[file_path] = self.get_file_stats(file_path)
+        self._monitor_thread.start()
 
     def invalidate(self):
         """
         will invalidate the current cache and remove all the files from the watcher.
         """
-        self.monitor.terminate()
-        self.monitor_thread.join()
+        self._monitor.terminate()
+        # self._monitor_thread.join()
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         os.system("echo stop=" + now + " GMT >> " + FStatCache.self_stats_file)
-        self.__unwatch_all_files__()
+        self.__unwatch_all_files()
 
-    def __add_file_to_watch__(self, file_path):
+    def __add_file_to_watch(self, file_path):
         if os.path.isfile(file_path):
-            wd = self.inotify.add_watch(file_path, flags.MODIFY)
-            self.watches[wd] = file_path
+            wd = self._inotify.add_watch(file_path, flags.MODIFY)
+            self._watches[wd] = file_path
 
-        print("watch list: %s " % self.watches)
+        print("watch list: %s " % self._watches)
         stats = self.get_file_stats_using_stat(file_path)
-        self.__set_item__(file_path, stats)
+        self.__set_item(file_path, stats)
         return stats
 
-    def __unwatch_all_files__(self):
-        for wd in self.watches:
-            print("removing %s from watch list" % self.watches[wd])
-            self.inotify.rm_watch(wd)
+    def __remove_from_watch(self, file_path):
+        wd = FStatCache.__get_key(self._watches, file_path)
+        print(wd)
+        self._inotify.rm_watch(wd)
+        del self._watches[wd]
 
-    def __remove_from_watch__(self, file_path):
-        self.inotify.rm_watch(FStatCache.__get_key__(self.watches, file_path))
+    def __unwatch_all_files(self):
+        for wd in list(self._watches):
+            print("removing %s from watch list" % self._watches[wd])
+            self._inotify.rm_watch(wd)
+            del self._watches[wd]
+
+    def list_files_in_cache(self):
+        return list(self._watches.values())
+
+    def add_file_to_watch(self, file_path):
+        """
+        will add the given file to watch list, stats in cache will be updated when
+        a file modification event is received
+        :param file_path: absolute path to the file to monitor
+        """
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError("given file doesn't exist")
+        wd = self._inotify.add_watch(file_path, flags.MODIFY)
+        self._watches[wd] = file_path
+
+    def remove_from_watch(self, file_path):
+        """
+        will remove the file from watcher, will raise an error if the file is not
+        being watched
+        :param file_path: absolute path to the file to remove from watcher
+        """
+        if file_path not in list(self._watches.values()):
+            # define a custom exception class here
+            raise KeyError("file is not being watched")
+
+        self.__remove_from_watch(file_path)
 
     @staticmethod
-    def __get_key__(watches, value):
-        return [key for key in watches if (watches[key] == value)]
+    def __get_key(watches, value):
+        for item in watches:
+            if watches[item] == value:
+                return item
 
 
 if __name__ == '__main__':
     cache = FStatCache()
     cache.build(["/tmp/test_file1", "/tmp/test_file2"])
     print(cache.get_file_stats("/tmp/test_file1"))
+    print(cache.list_files_in_cache())
+    cache.remove_from_watch("/tmp/test_file2")
     time.sleep(6)
     cache.invalidate()
 '''

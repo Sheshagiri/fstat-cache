@@ -21,17 +21,27 @@ class FStatCacheTestCase(unittest.TestCase):
 
     def test_get_file_size_from_cache(self) -> None:
         print("inside test_get_file_size_from_cache")
-        # "validate" is 9 bytes
         expected_len = len('validate')
         file_path = self.file_paths[0]
         self.assertEqual(expected_len, self.cache.get_file_stats(file_path)['size'])
 
     def test_get_file_size_using_stat(self) -> None:
         print("inside test_get_file_size_using_stat")
-        # "validate \n validate again" is 15 bytes
         expected_len = len('validate again')
         file_path = self.file_paths[1]
         self.assertEqual(expected_len, self.cache.get_file_stats(file_path)['size'])
+
+    def test_list_files_in_cache(self) -> None:
+        self.assertEqual(self.file_paths[0], self.cache.list_files_in_cache()[0])
+
+    def test_add_file_to_watch_and_remove(self) -> None:
+        _, random_file = tempfile.mkstemp()
+        self.cache.add_file_to_watch(random_file)
+        self.assertIn(random_file, self.cache.list_files_in_cache())
+        self._write_to_file(random_file, "some random data")
+        self.cache.remove_from_watch(random_file)
+        self.assertNotIn(random_file, self.cache.list_files_in_cache())
+        self.failUnlessRaises(KeyError, lambda: self.cache.remove_from_watch("validate"))
 
     def tearDown(self) -> None:
         self.cache.invalidate()
